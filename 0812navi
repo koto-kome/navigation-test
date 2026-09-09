@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>子機ナビゲーション | Pull Compass</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#12151A;
+    --panel:#191D24;
+    --panel-line:#262B33;
+    --ink:#E9EAE6;
+    --muted:#7C8794;
+    --lock:#FFB020;      /* 親機方向ロック時のアクセント */
+    --self:#4FD1FF;      /* 自分の向き(コンパス)のアクセント */
+    --danger:#FF5C5C;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+    font-family:'JetBrains Mono',monospace;
+    -webkit-tap-highlight-color:transparent;}
+  body{min-height:100vh;padding:0 0 40px;}
+
+  .eyebrow{font-family:'Barlow Condensed',sans-serif;letter-spacing:.14em;text-transform:uppercase;
+    font-size:12px;color:var(--muted);}
+
+  header{padding:22px 20px 14px;border-bottom:1px solid var(--panel-line);
+    display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+  header h1{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:26px;
+    letter-spacing:.01em;margin:2px 0 0;}
+  .status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;
+    background:var(--danger);box-shadow:0 0 0 3px rgba(255,92,92,.15);}
+  .status-dot.on{background:var(--lock);box-shadow:0 0 0 3px rgba(255,176,32,.18);}
+  #statusText{font-size:12px;color:var(--muted);}
+
+  main{max-width:520px;margin:0 auto;padding:0 20px;}
+
+  /* --- Signature element: compass gauge --- */
+  .gaugeWrap{position:relative;display:flex;justify-content:center;padding:34px 0 10px;}
+  .gauge{position:relative;width:280px;height:280px;}
+  .ring{position:absolute;inset:0;border-radius:50%;border:1px solid var(--panel-line);}
+  .pullGlow{position:absolute;inset:0;border-radius:50%;
+    box-shadow:0 0 0 0 rgba(255,176,32,0);
+    transition:box-shadow .25s ease, opacity .25s ease;}
+  .pullGlow.active{box-shadow:0 0 38px 6px rgba(255,176,32,.35);}
+  .tickWrap{position:absolute;inset:0;}
+  .tick{position:absolute;left:50%;top:6px;width:1px;height:10px;background:var(--panel-line);
+    transform-origin:50% 134px;}
+  .tick.cardinal{height:14px;background:var(--muted);width:2px;}
+  .needleWrap{position:absolute;left:50%;top:50%;width:0;height:0;
+    transition:transform .15s linear;}
+  .needle{position:absolute;left:-9px;top:-124px;width:18px;height:124px;}
+  .needle svg{width:100%;height:100%;display:block;}
+  .hub{position:absolute;left:50%;top:50%;width:14px;height:14px;margin:-7px;border-radius:50%;
+    background:var(--ink);border:2px solid var(--bg);z-index:3;}
+  .center-readout{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    text-align:center;pointer-events:none;}
+  .center-readout .deg{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:40px;
+    color:var(--lock);line-height:1;}
+  .center-readout .label{font-size:10px;color:var(--muted);letter-spacing:.1em;margin-top:4px;}
+
+  /* --- data grid --- */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--panel-line);
+    border:1px solid var(--panel-line);border-radius:10px;overflow:hidden;margin-top:18px;}
+  .cell{background:var(--panel);padding:12px 14px;}
+  .cell .k{font-size:10px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;
+    font-family:'Barlow Condensed',sans-serif;}
+  .cell .v{font-size:15px;margin-top:4px;color:var(--ink);}
+  .cell .v.accent{color:var(--lock);}
+
+  section.panel{margin-top:22px;border:1px solid var(--panel-line);border-radius:10px;
+    background:var(--panel);padding:16px 16px 18px;}
+  section.panel h2{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:600;
+    margin:0 0 12px;letter-spacing:.02em;}
+  section.panel h2 .n{color:var(--muted);margin-right:8px;}
+
+  .row{display:flex;gap:10px;margin-bottom:10px;}
+  .row:last-child{margin-bottom:0;}
+  label{display:block;font-size:11px;color:var(--muted);margin-bottom:5px;}
+  input[type=number], input[type=text]{
+    width:100%;background:#0F1216;border:1px solid var(--panel-line);border-radius:7px;
+    padding:9px 10px;color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:13px;}
+  input:focus{outline:1px solid var(--self);}
+
+  button{font-family:'Barlow Condensed',sans-serif;font-weight:600;letter-spacing:.03em;
+    font-size:14px;border:1px solid var(--panel-line);background:#0F1216;color:var(--ink);
+    padding:10px 14px;border-radius:7px;cursor:pointer;}
+  button:active{transform:translateY(1px);}
+  button.primary{background:var(--lock);border-color:var(--lock);color:#1A1400;}
+  button.ghost{background:transparent;}
+  button:focus-visible{outline:2px solid var(--self);outline-offset:2px;}
+  button:disabled{opacity:.4;cursor:not-allowed;}
+
+  .btnRow{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;}
+  .hint{font-size:11px;color:var(--muted);line-height:1.6;margin-top:10px;}
+  .hint code{color:var(--self);}
+  .logBox{margin-top:10px;max-height:110px;overflow:auto;font-size:11px;color:var(--muted);
+    background:#0F1216;border:1px solid var(--panel-line);border-radius:7px;padding:8px 10px;}
+  .logBox div{white-space:pre-wrap;}
+
+  footer{max-width:520px;margin:26px auto 0;padding:0 20px;color:var(--muted);font-size:11px;
+    line-height:1.7;}
+
+  @media (prefers-reduced-motion: reduce){
+    .needleWrap, .pullGlow{transition:none;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="eyebrow">子機 / Wearable Unit</div>
+    <h1>Pull Compass Navigator</h1>
+  </div>
+  <div><span class="status-dot" id="statusDot"></span><span id="statusText">センサー未起動</span></div>
+</header>
+
+<main>
+
+  <div class="gaugeWrap">
+    <div class="gauge">
+      <div class="pullGlow" id="pullGlow"></div>
+      <div class="ring"></div>
+      <div class="tickWrap" id="tickWrap"></div>
+      <div class="needleWrap" id="needleWrap">
+        <div class="needle">
+          <svg viewBox="0 0 18 124" xmlns="http://www.w3.org/2000/svg">
+            <polygon points="9,0 18,38 9,30 0,38" fill="var(--lock)"/>
+            <rect x="8" y="30" width="2" height="94" fill="var(--panel-line)"/>
+          </svg>
+        </div>
+      </div>
+      <div class="hub"></div>
+      <div class="center-readout">
+        <div class="deg" id="diffDeg">--°</div>
+        <div class="label">親機とのズレ</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="cell"><div class="k">自分の向き (Heading)</div><div class="v" id="selfHeading">--°</div></div>
+    <div class="cell"><div class="k">親機への方位 (Bearing)</div><div class="v accent" id="bearing">--°</div></div>
+    <div class="cell"><div class="k">自分の位置</div><div class="v" id="selfPos">未取得</div></div>
+    <div class="cell"><div class="k">親機との距離</div><div class="v" id="distance">--</div></div>
+  </div>
+
+  <section class="panel">
+    <h2><span class="n">01</span>センサー許可</h2>
+    <div class="btnRow">
+      <button class="primary" id="btnStart">位置情報 + コンパスを開始</button>
+      <button class="ghost" id="btnVibeTest">振動テスト</button>
+    </div>
+    <div class="hint">
+      iOS Safari ではコンパス(方位)取得に <code>DeviceOrientationEvent.requestPermission()</code> の明示的な許可操作が必要です。必ずこのページを<strong>直接スマートフォンのブラウザで開いて</strong>ボタンを押してください(プレビュー埋め込み内では許可ダイアログが出ません)。
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2><span class="n">02</span>親機の位置</h2>
+    <div class="row">
+      <div style="flex:1"><label>緯度 (lat)</label><input type="number" step="0.000001" id="targetLat" placeholder="例: 41.7687"></div>
+      <div style="flex:1"><label>経度 (lng)</label><input type="number" step="0.000001" id="targetLng" placeholder="例: 140.7288"></div>
+    </div>
+    <div class="btnRow">
+      <button id="btnUseCurrentAsTarget">今の自分の位置を親機として設定(動作確認用)</button>
+      <button id="btnSetTarget">この座標を親機として設定</button>
+    </div>
+    <div class="hint">実機では、親機側の子機（本アプリの動作に相当する処理）から Bluetooth / LoRa 等で緯度経度が送られてくる想定です。下の 03 はその受け口の雛形です。</div>
+  </section>
+
+  <section class="panel">
+    <h2><span class="n">03</span>親機との通信 (Web Bluetooth・雛形)</h2>
+    <div class="btnRow">
+      <button id="btnBleConnect">Bluetoothデバイスに接続</button>
+      <button id="btnBleSend" disabled>ズレ角度/振動指令を送信</button>
+    </div>
+    <div class="logBox" id="bleLog"><div>未接続</div></div>
+    <div class="hint">
+      サービス/キャラクタリスティックの UUID はファームウェア側に合わせて <code>BLE_SERVICE_UUID</code> / <code>BLE_CHAR_UUID</code>(スクリプト冒頭)を書き換えてください。現状はスタブとして、計算したズレ角度(0-359を2byteで) と 振動強度(0-255を1byte)を1バイトずつ書き込みます。GPS付き親機がある場合は、緯度経度をこの経路で受信し 02 の欄へ流し込む形に拡張できます。
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2><span class="n">04</span>フィードバック設定</h2>
+    <div class="row">
+      <div style="flex:1">
+        <label>ロック判定の角度幅: <span id="thresholdVal">15</span>°</label>
+        <input type="range" min="3" max="45" value="15" id="thresholdSlider" style="width:100%">
+      </div>
+    </div>
+    <div class="hint">この角度以内を向くと「親機の方を向いた」と判定し、振動(引かれる感覚)が入ります。ズレが小さいほど振動間隔が短くなります。</div>
+  </section>
+
+</main>
+
+<footer>
+  端末の磁北ずれ・鉄骨や磁性体の影響でコンパス精度が落ちることがあります。実運用ではキャリブレーション(端末を8の字に振る)を促す導線を追加すると安定します。
+</footer>
+
+<script>
+(() => {
+  // ---- 状態 ----
+  let selfLat=null, selfLng=null, selfHeadingDeg=null;
+  let targetLat=null, targetLng=null;
+  let watchId=null;
+  let bleDevice=null, bleChar=null;
+  let lastVibeTime=0;
+
+  const BLE_SERVICE_UUID = '0000ffe0-0000-1000-8000-00805f9b34fb'; // ←実機のUUIDに置き換え
+  const BLE_CHAR_UUID    = '0000ffe1-0000-1000-8000-00805f9b34fb'; // ←実機のUUIDに置き換え
+
+  // ---- DOM ----
+  const statusDot = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
+  const selfHeadingEl = document.getElementById('selfHeading');
+  const bearingEl = document.getElementById('bearing');
+  const selfPosEl = document.getElementById('selfPos');
+  const distanceEl = document.getElementById('distance');
+  const diffDegEl = document.getElementById('diffDeg');
+  const needleWrap = document.getElementById('needleWrap');
+  const pullGlow = document.getElementById('pullGlow');
+  const tickWrap = document.getElementById('tickWrap');
+  const thresholdSlider = document.getElementById('thresholdSlider');
+  const thresholdVal = document.getElementById('thresholdVal');
+  const bleLog = document.getElementById('bleLog');
+
+  // ---- ゲージの目盛り描画 ----
+  for(let i=0;i<360;i+=10){
+    const t=document.createElement('div');
+    t.className='tick'+(i%90===0?' cardinal':'');
+    t.style.transform=`rotate(${i}deg)`;
+    tickWrap.appendChild(t);
+  }
+
+  function log(msg){
+    const d=document.createElement('div');
+    d.textContent=`[${new Date().toLocaleTimeString()}] ${msg}`;
+    bleLog.prepend(d);
+  }
+
+  function setStatus(on, text){
+    statusDot.classList.toggle('on', on);
+    statusText.textContent=text;
+  }
+
+  // ---- 地理計算 ----
+  function toRad(d){return d*Math.PI/180;}
+  function toDeg(r){return r*180/Math.PI;}
+
+  function bearingTo(lat1,lng1,lat2,lng2){
+    const φ1=toRad(lat1), φ2=toRad(lat2), Δλ=toRad(lng2-lng1);
+    const y=Math.sin(Δλ)*Math.cos(φ2);
+    const x=Math.cos(φ1)*Math.sin(φ2)-Math.sin(φ1)*Math.cos(φ2)*Math.cos(Δλ);
+    return (toDeg(Math.atan2(y,x))+360)%360;
+  }
+
+  function distanceMeters(lat1,lng1,lat2,lng2){
+    const R=6371000;
+    const φ1=toRad(lat1), φ2=toRad(lat2);
+    const dφ=toRad(lat2-lat1), dλ=toRad(lng2-lng1);
+    const a=Math.sin(dφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(dλ/2)**2;
+    return 2*R*Math.asin(Math.sqrt(a));
+  }
+
+  function angleDiff(a,b){
+    let d=(b-a+540)%360-180; // -180 .. 180
+    return d;
+  }
+
+  // ---- メイン更新ループ ----
+  function update(){
+    if(selfLat==null || selfLng==null){ return; }
+    selfPosEl.textContent = `${selfLat.toFixed(6)}, ${selfLng.toFixed(6)}`;
+
+    if(targetLat==null || targetLng==null){
+      bearingEl.textContent='親機未設定';
+      distanceEl.textContent='--';
+      diffDegEl.textContent='--°';
+      return;
+    }
+
+    const bearing = bearingTo(selfLat,selfLng,targetLat,targetLng);
+    const dist = distanceMeters(selfLat,selfLng,targetLat,targetLng);
+    bearingEl.textContent = bearing.toFixed(0)+'°';
+    distanceEl.textContent = dist<1000 ? dist.toFixed(0)+' m' : (dist/1000).toFixed(2)+' km';
+
+    if(selfHeadingDeg==null){
+      diffDegEl.textContent='方位不明';
+      return;
+    }
+
+    const diff = angleDiff(selfHeadingDeg, bearing); // -180..180、+なら右(時計回り)に回すべき
+    diffDegEl.textContent = (diff>0?'+':'')+diff.toFixed(0)+'°';
+    needleWrap.style.transform = `rotate(${diff}deg)`;
+
+    const threshold = Number(thresholdSlider.value);
+    const aligned = Math.abs(diff) <= threshold;
+    pullGlow.classList.toggle('active', aligned);
+
+    handleHapticFeedback(diff, aligned);
+  }
+
+  // ---- 触覚フィードバック(振動) ----
+  // 実機では、この intensity / interval に相当する値を 03 のBLE送信で子機のアクチュエータへ渡す
+  function handleHapticFeedback(diff, aligned){
+    if(!('vibrate' in navigator)) return;
+    const now = performance.now();
+    if(!aligned){
+      return; // ロック外では振動しない
+    }
+    // ズレが小さいほど間隔を短く(=強く引かれる感覚)
+    const absDiff = Math.abs(diff);
+    const interval = 250 + absDiff*20; // 250ms(真正面)〜 250+threshold*20 ms
+    if(now - lastVibeTime > interval){
+      navigator.vibrate(60);
+      lastVibeTime = now;
+    }
+  }
+
+  // ---- センサー開始 ----
+  async function startSensors(){
+    // 方位(コンパス)
+    if(typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
+      try{
+        const res = await DeviceOrientationEvent.requestPermission();
+        if(res !== 'granted'){ setStatus(false,'コンパスの許可が必要です'); return; }
+      }catch(e){ setStatus(false,'許可取得に失敗: '+e.message); return; }
+    }
+
+    window.addEventListener('deviceorientationabsolute', onOrientation, true);
+    window.addEventListener('deviceorientation', onOrientation, true);
+
+    // 位置情報
+    if(!navigator.geolocation){ setStatus(false,'この端末は位置情報に対応していません'); return; }
+    if(watchId!=null) navigator.geolocation.clearWatch(watchId);
+    watchId = navigator.geolocation.watchPosition(pos=>{
+      selfLat = pos.coords.latitude;
+      selfLng = pos.coords.longitude;
+      setStatus(true, `GPS取得中 (精度 ±${pos.coords.accuracy.toFixed(0)}m)`);
+      update();
+    }, err=>{
+      setStatus(false, '位置情報エラー: '+err.message);
+    }, { enableHighAccuracy:true, maximumAge:1000, timeout:15000 });
+  }
+
+  function onOrientation(e){
+    let heading = null;
+    if(typeof e.webkitCompassHeading === 'number'){
+      heading = e.webkitCompassHeading; // iOS: 0=北, 時計回り, 補正済み
+    } else if(e.alpha != null){
+      // Android等: absolute=trueなら概ね 0=北, 反時計回りのalpha → 時計回りheadingへ変換
+      heading = (360 - e.alpha) % 360;
+    }
+    if(heading==null) return;
+    selfHeadingDeg = heading;
+    selfHeadingEl.textContent = heading.toFixed(0)+'°';
+    update();
+  }
+
+  // ---- UIイベント ----
+  document.getElementById('btnStart').addEventListener('click', startSensors);
+
+  document.getElementById('btnVibeTest').addEventListener('click', ()=>{
+    if('vibrate' in navigator){ navigator.vibrate([80,60,80]); }
+    else alert('この端末/ブラウザは振動APIに対応していません');
+  });
+
+  document.getElementById('btnUseCurrentAsTarget').addEventListener('click', ()=>{
+    if(selfLat==null){ alert('先に 01 でセンサーを開始してください'); return; }
+    targetLat=selfLat; targetLng=selfLng;
+    document.getElementById('targetLat').value=selfLat.toFixed(6);
+    document.getElementById('targetLng').value=selfLng.toFixed(6);
+    update();
+  });
+
+  document.getElementById('btnSetTarget').addEventListener('click', ()=>{
+    const la=parseFloat(document.getElementById('targetLat').value);
+    const ln=parseFloat(document.getElementById('targetLng').value);
+    if(isNaN(la)||isNaN(ln)){ alert('緯度経度を入力してください'); return; }
+    targetLat=la; targetLng=ln;
+    update();
+  });
+
+  thresholdSlider.addEventListener('input', ()=>{
+    thresholdVal.textContent = thresholdSlider.value;
+    update();
+  });
+
+  // ---- Web Bluetooth(雛形) ----
+  document.getElementById('btnBleConnect').addEventListener('click', async ()=>{
+    if(!navigator.bluetooth){ log('この端末/ブラウザは Web Bluetooth 非対応です(iOS Safari非対応)'); return; }
+    try{
+      bleDevice = await navigator.bluetooth.requestDevice({
+        filters:[{ services:[BLE_SERVICE_UUID] }]
+        // 対象が絞れない場合は次の1行に差し替え: acceptAllDevices:true, optionalServices:[BLE_SERVICE_UUID]
+      });
+      log('デバイス選択: '+bleDevice.name);
+      const server = await bleDevice.gatt.connect();
+      const service = await server.getPrimaryService(BLE_SERVICE_UUID);
+      bleChar = await service.getCharacteristic(BLE_CHAR_UUID);
+      log('接続完了。送信可能です。');
+      document.getElementById('btnBleSend').disabled=false;
+    }catch(e){
+      log('接続失敗: '+e.message);
+    }
+  });
+
+  document.getElementById('btnBleSend').addEventListener('click', async ()=>{
+    if(!bleChar){ return; }
+    if(targetLat==null || selfHeadingDeg==null){ log('送信できるデータがまだありません'); return; }
+    const bearing = bearingTo(selfLat,selfLng,targetLat,targetLng);
+    const diff = Math.round((angleDiff(selfHeadingDeg,bearing)+360)%360); // 0-359
+    const threshold = Number(thresholdSlider.value);
+    const aligned = Math.abs(angleDiff(selfHeadingDeg,bearing)) <= threshold;
+    const intensity = aligned ? Math.max(0, 255 - Math.abs(angleDiff(selfHeadingDeg,bearing))*10) : 0;
+
+    const payload = new Uint8Array([diff & 0xff, (diff>>8) & 0xff, intensity & 0xff]);
+    try{
+      await bleChar.writeValue(payload);
+      log(`送信: diff=${diff}° intensity=${Math.round(intensity)}`);
+    }catch(e){
+      log('送信失敗: '+e.message);
+    }
+  });
+
+})();
+</script>
+</body>
+</html>
