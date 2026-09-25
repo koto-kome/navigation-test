@@ -394,7 +394,7 @@
   });
 
   // ---- Web Bluetooth(雛形) ----
-  document.getElementById('btnBleConnect').addEventListener('click', async ()=>{
+  /*document.getElementById('btnBleConnect').addEventListener('click', async ()=>{
     alert('Bluetooth接続ボタンが押されました');
     
     if(!navigator.bluetooth){ log('この端末/ブラウザは Web Bluetooth 非対応です(iOS Safari非対応)'); return; }
@@ -435,7 +435,19 @@
     }catch(e){
       log('送信失敗: '+e.message);
     }
+  });*/
+
+   document.getElementById('btnStart').addEventListener('click', startSensors);
+
+  document.getElementById('btnVibeTest').addEventListener('click', ()=>{
+    if('vibrate' in navigator){
+      navigator.vibrate([80,60,80]);
+    }else{
+      alert('この端末/ブラウザは振動APIに対応していません');
+    }
   });
+
+  
 
 })();
 </script>
