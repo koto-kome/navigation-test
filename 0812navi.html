@@ -320,7 +320,9 @@
     const absDiff = Math.abs(diff);
     const interval = 250 + absDiff*20; // 250ms(真正面)〜 250+threshold*20 ms
     if(now - lastVibeTime > interval){
-      navigator.vibrate(60);
+      if(bleChar && bleDevice?.gatt?.connected){
+        bleChar.writeValue(new TextEncoder().encode('VIBRATE'));
+      }
       lastVibeTime = now;
     }
   }
