@@ -208,14 +208,14 @@
   let targetLat=null, targetLng=null;
   let watchId=null;
   let bleDevice=null, bleChar=null;
+  let bleServer = null;
   let lastVibeTime=0;
 
   //const BLE_SERVICE_UUID = '0000ffe0-0000-1000-8000-00805f9b34fb'; // ←実機のUUIDに置き換え
   //const BLE_CHAR_UUID    = '0000ffe1-0000-1000-8000-00805f9b34fb'; // ←実機のUUIDに置き換え
 
   const BLE_SERVICE_UUID ='6e400001-b5a3-f393-e0a9-e50e24dcca9e';
-  //const BLE_CHAR_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
-  const BLE_CHAR_UUID = '846B1F7D-D4A5-D9DA-8681-5D3B342748C5';
+  const BLE_CHAR_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
   
   // ---- DOM ----
   const statusDot = document.getElementById('statusDot');
@@ -395,8 +395,7 @@
   });
 
   // ---- Web Bluetooth(雛形) ----
-  /*document.getElementById('btnBleConnect').addEventListener('click', async ()=>{
-    alert('Bluetooth接続ボタンが押されました');
+  document.getElementById('btnBleConnect').addEventListener('click', async ()=>{
     
     if(!navigator.bluetooth){ log('この端末/ブラウザは Web Bluetooth 非対応です(iOS Safari非対応)'); return; }
     try{
@@ -429,14 +428,14 @@
     const aligned = Math.abs(angleDiff(selfHeadingDeg,bearing)) <= threshold;
     const intensity = aligned ? Math.max(0, 255 - Math.abs(angleDiff(selfHeadingDeg,bearing))*10) : 0;
 
-    const payload = new Uint8Array([diff & 0xff, (diff>>8) & 0xff, intensity & 0xff]);
+    const payload = new TextEncoder().encode('VIBRATE');
     try{
       await bleChar.writeValue(payload);
       log(`送信: diff=${diff}° intensity=${Math.round(intensity)}`);
     }catch(e){
       log('送信失敗: '+e.message);
     }
-  });*/
+  });
 
    document.getElementById('btnStart').addEventListener('click', startSensors);
 
