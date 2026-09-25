@@ -212,8 +212,10 @@
 
   //const BLE_SERVICE_UUID = '0000ffe0-0000-1000-8000-00805f9b34fb'; // ←実機のUUIDに置き換え
   //const BLE_CHAR_UUID    = '0000ffe1-0000-1000-8000-00805f9b34fb'; // ←実機のUUIDに置き換え
-  const BLE_SERVICE_UUID = '6E400001-B5A3-F393-E0A9-E50E24DCCA9E';
-  const BLE_CHAR_UUID    = '6E400002-B5A3-F393-E0A9-E50E24DCCA9E';
+
+  const BLE_SERVICE_UUID ='6E400001-B5A3-F393-E0A9-E50E24DCCA9E';
+  const BLE_CHAR_UUID = '6E400002-B5A3-F393-E0A9-E50E24DCCA9E';
+  
   // ---- DOM ----
   const statusDot = document.getElementById('statusDot');
   const statusText = document.getElementById('statusText');
@@ -395,10 +397,17 @@
   document.getElementById('btnBleConnect').addEventListener('click', async ()=>{
     if(!navigator.bluetooth){ log('この端末/ブラウザは Web Bluetooth 非対応です(iOS Safari非対応)'); return; }
     try{
-      bleDevice = await navigator.bluetooth.requestDevice({
-        filters:[{ services:[BLE_SERVICE_UUID] }]
+     // bleDevice = await navigator.bluetooth.requestDevice({
+       // filters:[{ services:[BLE_SERVICE_UUID] }]
         // 対象が絞れない場合は次の1行に差し替え: acceptAllDevices:true, optionalServices:[BLE_SERVICE_UUID]
+
+      bleDevice = await navigator.bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: [BLE_SERVICE_UUID]
       });
+
+      
+    });
       log('デバイス選択: '+bleDevice.name);
       const server = await bleDevice.gatt.connect();
       const service = await server.getPrimaryService(BLE_SERVICE_UUID);
