@@ -318,7 +318,7 @@
     }
     // ズレが小さいほど間隔を短く(=強く引かれる感覚)
     const absDiff = Math.abs(diff);
-    const interval = 250 + absDiff*20; // 250ms(真正面)〜 250+threshold*20 ms
+    const interval = 1000; // 1秒おきに正面か確認＋振動
     if(now - lastVibeTime > interval){
       if(bleChar && bleDevice?.gatt?.connected){
         bleChar.writeValue(new TextEncoder().encode('VIBRATE'));
