@@ -409,9 +409,17 @@
     });
       
       log('デバイス選択: '+bleDevice.name);
+     log('GATT接続開始');
       const server = await bleDevice.gatt.connect();
+      log('GATT接続成功');
+
+      log('サービス取得開始');
       const service = await server.getPrimaryService(BLE_SERVICE_UUID);
+      log('サービス取得成功');
+
+      log('キャラクタリスティック取得開始');
       bleChar = await service.getCharacteristic(BLE_CHAR_UUID);
+      log('キャラクタリスティック取得成功');
       log('接続完了。送信可能です。');
       document.getElementById('btnBleSend').disabled=false;
     }catch(e){
