@@ -406,10 +406,8 @@
       bleDevice = await navigator.bluetooth.requestDevice({
         acceptAllDevices: true,
         optionalServices: [BLE_SERVICE_UUID]
-      });
-
-      
     });
+      
       log('デバイス選択: '+bleDevice.name);
       const server = await bleDevice.gatt.connect();
       const service = await server.getPrimaryService(BLE_SERVICE_UUID);
