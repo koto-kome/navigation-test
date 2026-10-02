@@ -6,7 +6,10 @@
         "${workspaceFolder}/**",
         "${env:LOCALAPPDATA}/Arduino15/packages/m5stack/hardware/esp32/3.3.7/**",
         "${env:LOCALAPPDATA}/Arduino15/packages/m5stack/tools/**",
-        "${env:USERPROFILE}/OneDrive/ドキュメント/Arduino/libraries/**"
+        "${env:LOCALAPPDATA}/Arduino15/packages/m5stack/tools/esp32-libs/3.3.7/include/**",
+        "${env:LOCALAPPDATA}/Arduino15/packages/m5stack/tools/esp32-libs/3.3.7/include/hal/include",
+        "${env:USERPROFILE}/OneDrive/ドキュメント/Arduino/libraries/**",
+        "${env:USERPROFILE}/OneDrive/ドキュメント/Arduino/libraries/arduinoWebSockets/src"
       ],
       "defines": [
         "ARDUINO_ARCH_ESP32",
