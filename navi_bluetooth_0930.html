@@ -380,9 +380,21 @@
     }, { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 });
   }
 
+  let orientLogged = false;
   function onOrientation(e){
+    if(!orientLogged){
+      orientLogged = true;
+      log(`方位イベント受信: type=${e.type} alpha=${e.alpha} webkit=${e.webkitCompassHeading}`);
+    }
     let heading = null;
-
+    let orientLogged = false;
+  function onOrientation(e){
+    if(!orientLogged){
+      orientLogged = true;
+      log(`方位イベント受信: type=${e.type} alpha=${e.alpha} webkit=${e.webkitCompassHeading}`);
+    }
+    let heading = null;
+    
     if(typeof e.webkitCompassHeading === 'number'){
       heading = e.webkitCompassHeading;
     } else if(e.alpha != null){
