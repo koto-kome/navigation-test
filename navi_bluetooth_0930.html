@@ -347,13 +347,26 @@
       } catch(e) { setStatus(false, '許可取得に失敗: ' + e.message); return; }
     }
 
-    if(hasAbsolute){
+    /*if(hasAbsolute){
       // Android: 北基準の値が取れるイベントだけ使う
       window.addEventListener('deviceorientationabsolute', onOrientation, true);
     } else {
       // iOS など: webkitCompassHeading が入るこちらを使う
       window.addEventListener('deviceorientation', onOrientation, true);
-    }
+    }*/
+    let gotAbsolute = false;
+    window.addEventListener('deviceorientationabsolute', (e) => {
+      gotAbsolute = true;
+      onOrientation(e);
+    }, true);
+
+    // 1.5秒たっても北基準のイベントが来なければ、通常のイベントを使う
+    // (iOSは webkitCompassHeading がこちらに入る)
+    setTimeout(() => {
+      if(!gotAbsolute){
+        window.addEventListener('deviceorientation', onOrientation, true);
+      }
+    }, 1500);
     
     if(!navigator.geolocation){ setStatus(false, 'この端末は位置情報に対応していません'); return; }
     if(watchId != null) navigator.geolocation.clearWatch(watchId);
