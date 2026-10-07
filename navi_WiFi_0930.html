@@ -282,7 +282,7 @@ const MAX_HEADING_STEP = 30;
   }
 
   function stopHapticFeedback(){
-    if(vibrationActive){
+    if(!vibrationActive){
       return;
     }
     if(sendWifiCommand({ type: 'STOP' })){
