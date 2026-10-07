@@ -225,9 +225,7 @@
   let targetLat=null, targetLng=null;
   let watchId=null;
   let wifiSocket=null;
-  let lastVibeTime=0;
   let vibrationActive=false;
-  let vibrationSuppressed=false;
 
 // 方角を安定させるための履歴
 let headingHistory = [];
@@ -284,7 +282,10 @@ const MAX_HEADING_STEP = 30;
   }
 
   function stopHapticFeedback(){
-    if(vibrationActive && sendWifiCommand({ type: 'STOP' })){
+    if(vibrationActive){
+      return;
+    }
+    if(sendWifiCommand({ type: 'STOP' })){
       vibrationActive = false;
     }
   }
@@ -358,7 +359,7 @@ const MAX_HEADING_STEP = 30;
 
   // ---- 触覚フィードバック(振動) ----
   // 実機では、この intensity / interval に相当する値を 03 のWebSocketで子機へ渡す
-  function handleHapticFeedback(diff, aligned){
+  /*function handleHapticFeedback(diff, aligned){
     if(!wifiSocket || wifiSocket.readyState !== WebSocket.OPEN) return;
     const now = performance.now();
     if(!aligned){
@@ -381,7 +382,42 @@ const MAX_HEADING_STEP = 30;
         lastVibeTime = now;
       }
     }
+  }*/
+  // ---- 触覚フィードバック(振動) ----
+// 正面に入ったときだけVIBRATEを1回送信。
+// 正面から外れたときにSTOPを送信する。
+function handleHapticFeedback(diff, aligned){
+
+  if(!wifiSocket || wifiSocket.readyState !== WebSocket.OPEN){
+    return;
   }
+
+  // 正面の範囲に入った
+  if(aligned){
+
+    // すでに振動中なら、もう一度VIBRATEを送らない
+    if(vibrationActive){
+      return;
+    }
+
+    const intensity =
+      Math.max(0, 255 - Math.abs(diff) * 10);
+
+    if(sendWifiCommand({
+      type: 'VIBRATE',
+      diff: Math.round((diff + 360) % 360),
+      intensity: Math.round(intensity),
+      aligned: true
+    })){
+      vibrationActive = true;
+    }
+
+    return;
+  }
+
+  // 正面の範囲から外れた
+  stopHapticFeedback();
+}
 
   // ---- センサー開始 ----
   async function startSensors(){
