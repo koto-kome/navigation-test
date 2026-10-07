@@ -4,8 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>子機ナビゲーション | Pull Compass</title>
-<link rel="stylesheet" href="destination-search.css">
-<script src="destination-search.js" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -15,8 +13,8 @@
     --panel-line:#262B33;
     --ink:#E9EAE6;
     --muted:#7C8794;
-    --lock:#FFB020;
-    --self:#4FD1FF;
+    --lock:#FFB020;      /* 親機方向ロック時のアクセント */
+    --self:#4FD1FF;      /* 自分の向き(コンパス)のアクセント */
     --danger:#FF5C5C;
   }
   *{box-sizing:border-box;}
@@ -39,6 +37,7 @@
 
   main{max-width:520px;margin:0 auto;padding:0 20px;}
 
+  /* --- Signature element: compass gauge --- */
   .gaugeWrap{position:relative;display:flex;justify-content:center;padding:34px 0 10px;}
   .gauge{position:relative;width:280px;height:280px;}
   .ring{position:absolute;inset:0;border-radius:50%;border:1px solid var(--panel-line);}
@@ -62,6 +61,7 @@
     color:var(--lock);line-height:1;}
   .center-readout .label{font-size:10px;color:var(--muted);letter-spacing:.1em;margin-top:4px;}
 
+  /* --- data grid --- */
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--panel-line);
     border:1px solid var(--panel-line);border-radius:10px;overflow:hidden;margin-top:18px;}
   .cell{background:var(--panel);padding:12px 14px;}
@@ -82,6 +82,22 @@
   input[type=number], input[type=text]{
     width:100%;background:#0F1216;border:1px solid var(--panel-line);border-radius:7px;
     padding:9px 10px;color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:13px;}
+  input[type=range]{
+    width:100%;accent-color:var(--lock);cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-runnable-track{
+    height:6px;border-radius:999px;background:rgba(255,176,32,.25);
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;width:16px;height:16px;border-radius:50%;
+    background:var(--lock);border:2px solid #1A1400;margin-top:-5px;box-shadow:0 0 0 2px rgba(255,176,32,.18);
+  }
+  input[type=range]::-moz-range-track{
+    height:6px;border-radius:999px;background:rgba(255,176,32,.25);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:16px;height:16px;border:none;border-radius:50%;background:var(--lock);box-shadow:0 0 0 2px rgba(255,176,32,.18);
+  }
   input:focus{outline:1px solid var(--self);}
 
   button{font-family:'Barlow Condensed',sans-serif;font-weight:600;letter-spacing:.03em;
@@ -94,12 +110,18 @@
   button:disabled{opacity:.4;cursor:not-allowed;}
 
   .btnRow{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;}
+  .hint{font-size:11px;color:var(--muted);line-height:1.6;margin-top:10px;}
+  .hint code{color:var(--self);}
   .logBox{margin-top:10px;max-height:110px;overflow:auto;font-size:11px;color:var(--muted);
     background:#0F1216;border:1px solid var(--panel-line);border-radius:7px;padding:8px 10px;}
   .logBox div{white-space:pre-wrap;}
 
   footer{max-width:520px;margin:26px auto 0;padding:0 20px;color:var(--muted);font-size:11px;
     line-height:1.7;}
+
+  @media (prefers-reduced-motion: reduce){
+    .needleWrap, .pullGlow{transition:none;}
+  }
 </style>
 </head>
 <body>
@@ -137,46 +159,45 @@
 
   <div class="grid">
     <div class="cell"><div class="k">自分の向き (Heading)</div><div class="v" id="selfHeading">--°</div></div>
-    <div class="cell"><div class="k">目的地への方位 (Bearing)</div><div class="v accent" id="bearing">--°</div></div>
+    <div class="cell"><div class="k">親機への方位 (Bearing)</div><div class="v accent" id="bearing">--°</div></div>
     <div class="cell"><div class="k">自分の位置</div><div class="v" id="selfPos">未取得</div></div>
-    <div class="cell"><div class="k">目的地までの距離</div><div class="v" id="distance">--</div></div>
+    <div class="cell"><div class="k">親機との距離</div><div class="v" id="distance">--</div></div>
   </div>
 
   <section class="panel">
     <h2><span class="n">01</span>センサー許可</h2>
     <div class="btnRow">
       <button class="primary" id="btnStart">位置情報 + コンパスを開始</button>
+      <button class="ghost" id="btnVibeTest">振動テスト</button>
+    </div>
+    <div class="hint">
+      iOS Safari ではコンパス(方位)取得に <code>DeviceOrientationEvent.requestPermission()</code> の明示的な許可操作が必要です。必ずこのページを<strong>直接スマートフォンのブラウザで開いて</strong>ボタンを押してください(プレビュー埋め込み内では許可ダイアログが出ません)。
     </div>
   </section>
 
   <section class="panel">
-    <h2><span class="n">02</span>目的地の位置</h2>
-    <div class="destination-search">
-      <label for="destinationQuery">住所・施設名</label>
-      <div class="destination-search__row">
-        <input id="destinationQuery" type="search" placeholder="例: 東京駅、新宿区西新宿2-8-1">
-        <button id="destinationSearchButton" type="button">検索</button>
-      </div>
-      <p id="destinationSearchStatus" class="destination-search__status" role="status" aria-live="polite"></p>
-      <div id="destinationResults" class="destination-search__results" aria-label="検索候補"></div>
-      <p class="destination-search__credit">住所はOpenStreetMapの検索サービスへ送信されます。非公開情報は入力しないでください。<br>地図データ: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a></p>
-    </div>
+    <h2><span class="n">02</span>親機の位置</h2>
     <div class="row">
       <div style="flex:1"><label>緯度 (lat)</label><input type="number" step="0.000001" id="targetLat" placeholder="例: 41.7687"></div>
       <div style="flex:1"><label>経度 (lng)</label><input type="number" step="0.000001" id="targetLng" placeholder="例: 140.7288"></div>
     </div>
     <div class="btnRow">
-      <button id="btnUseCurrentAsTarget">今の自分の位置を目的地として設定(動作確認用)</button>
-      <button id="btnSetTarget">この座標を目的地として設定</button>
+      <button id="btnUseCurrentAsTarget">今の自分の位置を親機として設定(動作確認用)</button>
+      <button id="btnSetTarget">この座標を親機として設定</button>
     </div>
+    <div class="hint">実機では、親機側から Bluetooth で緯度経度が送られてくる想定です。下の 03 は Bluetooth 通信の受け口の雛形です。</div>
   </section>
 
   <section class="panel">
-    <h2><span class="n">03</span>親機との通信 (Web Bluetooth)</h2>
+    <h2><span class="n">03</span>親機との通信 (Web Bluetooth・雛形)</h2>
     <div class="btnRow">
       <button id="btnBleConnect">Bluetoothデバイスに接続</button>
+      <button id="btnBleSend" disabled>振動指令を送信</button>
     </div>
     <div class="logBox" id="bleLog"><div>未接続</div></div>
+    <div class="hint">
+      サービス/キャラクタリスティックの UUID はファームウェア側に合わせてください。現在は振動命令 <code>VIBRATE</code> を送信します。
+    </div>
   </section>
 
   <section class="panel">
@@ -187,25 +208,33 @@
         <input type="range" min="3" max="45" value="15" id="thresholdSlider" style="width:100%">
       </div>
     </div>
+    <div class="hint">この角度以内を向くと「親機の方を向いた」と判定し、振動(引かれる感覚)が入ります。ズレが小さいほど振動間隔が短くなります。</div>
   </section>
 
 </main>
 
+<footer>
+  端末の磁北ずれ・鉄骨や磁性体の影響でコンパス精度が落ちることがあります。実運用ではキャリブレーション(端末を8の字に振る)を促す導線を追加すると安定します。
+</footer>
+
 <script>
 (() => {
-  let selfLat = null, selfLng = null, selfHeadingDeg = null;
-  let targetLat = null, targetLng = null;
-  let watchId = null;
-  let bleDevice = null, bleChar = null;
+  // ---- 状態 ----
+  let selfLat=null, selfLng=null, selfHeadingDeg=null;
+  let targetLat=null, targetLng=null;
+  let watchId=null;
+  let bleDevice=null, bleChar=null;
+  let lastVibeTime=0;
   let displayedDiff = null;
 
-  let headingHistory = [];
-  const HEADING_SAMPLES = 10;
-  const MAX_HEADING_STEP = 30; 
+// 方角を安定させるための履歴
+let headingHistory = [];
+const HEADING_SAMPLES = 10;
 
-  const BLE_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
-  const BLE_CHAR_UUID    = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
-  
+// 方角が急に飛んだときの最大変化量
+const MAX_HEADING_STEP = 30; 
+
+  // ---- DOM ----
   const statusDot = document.getElementById('statusDot');
   const statusText = document.getElementById('statusText');
   const selfHeadingEl = document.getElementById('selfHeading');
@@ -220,217 +249,235 @@
   const thresholdVal = document.getElementById('thresholdVal');
   const bleLog = document.getElementById('bleLog');
 
-  for(let i=0; i<360; i+=10){
-    const t = document.createElement('div');
-    t.className = 'tick' + (i % 90 === 0 ? ' cardinal' : '');
-    t.style.transform = `rotate(${i}deg)`;
+  // ---- ゲージの目盛り描画 ----
+  for(let i=0;i<360;i+=10){
+    const t=document.createElement('div');
+    t.className='tick'+(i%90===0?' cardinal':'');
+    t.style.transform=`rotate(${i}deg)`;
     tickWrap.appendChild(t);
   }
 
   function log(msg){
-    const d = document.createElement('div');
-    d.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    const d=document.createElement('div');
+    d.textContent=`[${new Date().toLocaleTimeString()}] ${msg}`;
     bleLog.prepend(d);
   }
 
   function setStatus(on, text){
     statusDot.classList.toggle('on', on);
-    statusText.textContent = text;
+    statusText.textContent=text;
   }
 
-  function toRad(d){ return d * Math.PI / 180; }
-  function toDeg(r){ return r * 180 / Math.PI; }
+  // ---- 地理計算 ----
+  function toRad(d){return d*Math.PI/180;}
+  function toDeg(r){return r*180/Math.PI;}
 
-  function bearingTo(lat1, lng1, lat2, lng2){
-    const φ1 = toRad(lat1), φ2 = toRad(lat2), Δλ = toRad(lng2 - lng1);
-    const y = Math.sin(Δλ) * Math.cos(φ2);
-    const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
-    return (toDeg(Math.atan2(y, x)) + 360) % 360;
+  function bearingTo(lat1,lng1,lat2,lng2){
+    const φ1=toRad(lat1), φ2=toRad(lat2), Δλ=toRad(lng2-lng1);
+    const y=Math.sin(Δλ)*Math.cos(φ2);
+    const x=Math.cos(φ1)*Math.sin(φ2)-Math.sin(φ1)*Math.cos(φ2)*Math.cos(Δλ);
+    return (toDeg(Math.atan2(y,x))+360)%360;
   }
 
-  function distanceMeters(lat1, lng1, lat2, lng2){
-    const R = 6371000;
-    const φ1 = toRad(lat1), φ2 = toRad(lat2);
-    const dφ = toRad(lat2 - lat1), dλ = toRad(lng2 - lng1);
-    const a = Math.sin(dφ / 2)**2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(dλ / 2)**2;
-    return 2 * R * Math.asin(Math.sqrt(a));
+  function distanceMeters(lat1,lng1,lat2,lng2){
+    const R=6371000;
+    const φ1=toRad(lat1), φ2=toRad(lat2);
+    const dφ=toRad(lat2-lat1), dλ=toRad(lng2-lng1);
+    const a=Math.sin(dφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(dλ/2)**2;
+    return 2*R*Math.asin(Math.sqrt(a));
   }
 
-  function angleDiff(a, b){
-    return (b - a + 540) % 360 - 180;
+  function angleDiff(a,b){
+    let d=(b-a+540)%360-180; // -180 .. 180
+    return d;
   }
 
+  // ---- メイン更新ループ ----
   function update(){
-    if(selfLat != null && selfLng != null){
-      selfPosEl.textContent = `${selfLat.toFixed(6)}, ${selfLng.toFixed(6)}`;
-    }
+    if(selfLat==null || selfLng==null){ return; }
+    selfPosEl.textContent = `${selfLat.toFixed(6)}, ${selfLng.toFixed(6)}`;
 
     if(targetLat==null || targetLng==null){
-      bearingEl.textContent='目的地未設定';
+      bearingEl.textContent='親機未設定';
       distanceEl.textContent='--';
       diffDegEl.textContent='--°';
       return;
     }
 
-    if(selfLat == null || selfLng == null){
-      bearingEl.textContent = '位置未取得';
+    const bearing = bearingTo(selfLat,selfLng,targetLat,targetLng);
+    const dist = distanceMeters(selfLat,selfLng,targetLat,targetLng);
+    bearingEl.textContent = bearing.toFixed(0)+'°';
+    distanceEl.textContent = dist<1000 ? dist.toFixed(0)+' m' : (dist/1000).toFixed(2)+' km';
+
+    if(selfHeadingDeg==null){
+      diffDegEl.textContent='方位不明';
       return;
     }
 
-    const bearing = bearingTo(selfLat, selfLng, targetLat, targetLng);
-    const dist = distanceMeters(selfLat, selfLng, targetLat, targetLng);
-    bearingEl.textContent = bearing.toFixed(0) + '°';
-    distanceEl.textContent = dist < 1000 ? dist.toFixed(0) + ' m' : (dist / 1000).toFixed(2) + ' km';
 
-    if(selfHeadingDeg == null){
-      diffDegEl.textContent = '方位不明';
-      return;
-    }
-
-    const diff = angleDiff(selfHeadingDeg, bearing);
+    const diff = angleDiff(selfHeadingDeg, bearing); // -180..180
     
     if(displayedDiff === null){
       displayedDiff = diff;
-    } else {
+    }else{
       let delta = diff - (displayedDiff % 360);
-      if(delta > 180) delta -= 360;
-      if(delta < -180) delta += 360;
+
+      if(delta > 180){
+        delta -= 360;
+      }
+
+      if(delta < -180){
+        delta += 360;
+      }
+
       displayedDiff += delta;
     }
 
-    diffDegEl.textContent = (diff > 0 ? '+' : '') + diff.toFixed(0) + '°';
+    diffDegEl.textContent = (diff>0?'+':'')+diff.toFixed(0)+'°';
     needleWrap.style.transform = `rotate(${displayedDiff}deg)`;
     
     const threshold = Number(thresholdSlider.value);
     const aligned = Math.abs(diff) <= threshold;
     pullGlow.classList.toggle('active', aligned);
 
-    handleHapticFeedback(aligned);
+    handleHapticFeedback(diff, aligned);
   }
 
-  // ★ 100% 確実に通信エラーを回避する排他制御（キューイング）
-  let targetVibe = false;  // スマホが今指示したい状態 (true/false)
-  let actualVibe = false;  // M5Stickへ送信完了している状態
-  let isSending = false;   // 現在通信中かどうか
-
-  async function syncVibeState() {
-    if (isSending || !bleChar || !bleDevice?.gatt?.connected) return;
-    if (targetVibe === actualVibe) return; // 状態が変わっていなければ送らない
-
-    isSending = true;
-    const sendState = targetVibe;
-    const cmd = sendState ? 'VIBRATE' : 'STOP';
-
-    try {
-      const data = new TextEncoder().encode(cmd);
-      
-      // writeValueWithoutResponse による高速送信
-      if (bleChar.writeValueWithoutResponse) {
-        await bleChar.writeValueWithoutResponse(data);
-      } else {
-        await bleChar.writeValue(data);
-      }
-      
-      actualVibe = sendState;
-      log(`>>> [BLE] ${cmd} 送信完了 (${sendState ? '正面' : '外れた'})`);
-    } catch (e) {
-      log(`通信エラー: ${e.message}`);
-    } finally {
-      isSending = false;
-      // 送信中に角度が変わっていたら、間髪入れずに最新の目標状態へ再同期
-      if (targetVibe !== actualVibe) {
-        setTimeout(syncVibeState, 20);
-      }
+  // ---- 触覚フィードバック(振動) ----
+  // 実機では、この intensity / interval に相当する値を 03 のBLE送信で子機のアクチュエータへ渡す
+  function handleHapticFeedback(diff, aligned){
+    const now = performance.now();
+    if(!aligned || !bleChar || !bleDevice?.gatt?.connected){
+      return; // ロック外では振動しない
+    }
+    const interval = 1000; // 1秒おきに正面か確認＋振動
+    if(now - lastVibeTime > interval){
+      bleChar.writeValue(new TextEncoder().encode('VIBRATE'))
+        .catch(e=>log('自動送信失敗: '+e.message));
+      lastVibeTime = now;
     }
   }
 
-  function handleHapticFeedback(aligned) {
-    targetVibe = aligned;
-    syncVibeState();
-  }
-
+  // ---- センサー開始 ----
   async function startSensors(){
+    // 方位(コンパス)
     if(typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
-      try {
+      try{
         const res = await DeviceOrientationEvent.requestPermission();
-        if(res !== 'granted'){ setStatus(false, 'コンパスの許可が必要です'); return; }
-      } catch(e) { setStatus(false, '許可取得に失敗: ' + e.message); return; }
+        if(res !== 'granted'){ setStatus(false,'コンパスの許可が必要です'); return; }
+      }catch(e){ setStatus(false,'許可取得に失敗: '+e.message); return; }
     }
 
     window.addEventListener('deviceorientationabsolute', onOrientation, true);
     window.addEventListener('deviceorientation', onOrientation, true);
 
-    if(!navigator.geolocation){ setStatus(false, 'この端末は位置情報に対応していません'); return; }
-    if(watchId != null) navigator.geolocation.clearWatch(watchId);
-    watchId = navigator.geolocation.watchPosition(pos => {
+    // 位置情報
+    if(!navigator.geolocation){ setStatus(false,'この端末は位置情報に対応していません'); return; }
+    if(watchId!=null) navigator.geolocation.clearWatch(watchId);
+    watchId = navigator.geolocation.watchPosition(pos=>{
       selfLat = pos.coords.latitude;
       selfLng = pos.coords.longitude;
       setStatus(true, `GPS取得中 (精度 ±${pos.coords.accuracy.toFixed(0)}m)`);
       update();
-    }, err => {
-      setStatus(false, '位置情報エラー: ' + err.message);
-    }, { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 });
+    }, err=>{
+      setStatus(false, '位置情報エラー: '+err.message);
+    }, { enableHighAccuracy:true, maximumAge:1000, timeout:15000 });
   }
 
-  function onOrientation(e){
-    let heading = null;
+function onOrientation(e){
+  let heading = null;
 
-    if(typeof e.webkitCompassHeading === 'number'){
-      heading = e.webkitCompassHeading;
-    } else if(e.alpha != null){
-      heading = (360 - e.alpha) % 360;
-    }
-
-    if(heading == null || !Number.isFinite(heading)) return;
-
-    if(selfHeadingDeg != null){
-      let step = heading - selfHeadingDeg;
-      if(step > 180) step -= 360;
-      if(step < -180) step += 360;
-      if(Math.abs(step) > MAX_HEADING_STEP){
-        return;
-      }
-    }
-
-    const rad = heading * Math.PI / 180;
-    headingHistory.push({ sin: Math.sin(rad), cos: Math.cos(rad) });
-    if(headingHistory.length > HEADING_SAMPLES){
-      headingHistory.shift();
-    }
-
-    let sinSum = 0, cosSum = 0;
-    for(const h of headingHistory){
-      sinSum += h.sin;
-      cosSum += h.cos;
-    }
-
-    let smoothedHeading = Math.atan2(sinSum, cosSum) * 180 / Math.PI;
-    if(smoothedHeading < 0) smoothedHeading += 360;
-
-    selfHeadingDeg = smoothedHeading;
-    selfHeadingEl.textContent = smoothedHeading.toFixed(0) + '°';
-
-    update();
+  if(typeof e.webkitCompassHeading === 'number'){
+    heading = e.webkitCompassHeading; // iOS: 0=北, 時計回り
+  } else if(e.alpha != null){
+    // Android等
+    heading = (360 - e.alpha) % 360;
   }
 
+  if(heading == null || !Number.isFinite(heading)) return;
+
+  // --------------------------------
+  // 急激な角度変化をチェック
+  // --------------------------------
+  if(selfHeadingDeg != null){
+
+    // 角度差を -180 ～ +180 にする
+    let step = heading - selfHeadingDeg;
+
+    if(step > 180){
+      step -= 360;
+    }
+
+    if(step < -180){
+      step += 360;
+    }
+
+    // 一度に30°以上飛んだ場合は採用しない
+    if(Math.abs(step) > MAX_HEADING_STEP){
+      return;
+    }
+  }
+
+  // --------------------------------
+  // 0°と360°の境目を考慮して平均する
+  // --------------------------------
+  const rad = heading * Math.PI / 180;
+
+  headingHistory.push({
+    sin: Math.sin(rad),
+    cos: Math.cos(rad)
+  });
+
+  // 最新10個だけ残す
+  if(headingHistory.length > HEADING_SAMPLES){
+    headingHistory.shift();
+  }
+
+  // 平均した方向を計算
+  let sinSum = 0;
+  let cosSum = 0;
+
+  for(const h of headingHistory){
+    sinSum += h.sin;
+    cosSum += h.cos;
+  }
+
+  let smoothedHeading =
+    Math.atan2(sinSum, cosSum) * 180 / Math.PI;
+
+  if(smoothedHeading < 0){
+    smoothedHeading += 360;
+  }
+
+  selfHeadingDeg = smoothedHeading;
+
+  selfHeadingEl.textContent =
+    smoothedHeading.toFixed(0) + '°';
+
+  update();
+}
+
+  // ---- UIイベント ----
   document.getElementById('btnStart').addEventListener('click', startSensors);
 
+  document.getElementById('btnVibeTest').addEventListener('click', ()=>{
+    if('vibrate' in navigator){ navigator.vibrate([80,60,80]); }
+    else alert('この端末/ブラウザは振動APIに対応していません');
+  });
+
   document.getElementById('btnUseCurrentAsTarget').addEventListener('click', ()=>{
-    if(selfLat == null){ alert('先に 01 でセンサーを開始してください'); return; }
-    targetLat = selfLat + 0.0001;
-    targetLng = selfLng;
-    document.getElementById('targetLat').value = targetLat.toFixed(6);
-    document.getElementById('targetLng').value = targetLng.toFixed(6);
-    log('親機を現在地の北約10mに設定');
+    if(selfLat==null){ alert('先に 01 でセンサーを開始してください'); return; }
+    targetLat=selfLat; targetLng=selfLng;
+    document.getElementById('targetLat').value=selfLat.toFixed(6);
+    document.getElementById('targetLng').value=selfLng.toFixed(6);
     update();
   });
 
   document.getElementById('btnSetTarget').addEventListener('click', ()=>{
-    const la = parseFloat(document.getElementById('targetLat').value);
-    const ln = parseFloat(document.getElementById('targetLng').value);
-    if(isNaN(la) || isNaN(ln)){ alert('緯度経度を入力してください'); return; }
-    targetLat = la; targetLng = ln;
-    log(`親機設定: ${la}, ${ln}`);
+    const la=parseFloat(document.getElementById('targetLat').value);
+    const ln=parseFloat(document.getElementById('targetLng').value);
+    if(isNaN(la)||isNaN(ln)){ alert('緯度経度を入力してください'); return; }
+    targetLat=la; targetLng=ln;
     update();
   });
 
@@ -439,29 +486,46 @@
     update();
   });
 
+  // ---- Web Bluetooth ----
+  const BLE_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+  const BLE_CHAR_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+
   document.getElementById('btnBleConnect').addEventListener('click', async ()=>{
-    if(!navigator.bluetooth){ log('Web Bluetooth 非対応ブラウザです'); return; }
-    try {
+    if(!navigator.bluetooth){
+      log('この端末/ブラウザはWeb Bluetooth非対応です(iOS Safari非対応)');
+      return;
+    }
+    try{
       bleDevice = await navigator.bluetooth.requestDevice({
         acceptAllDevices: true,
         optionalServices: [BLE_SERVICE_UUID]
       });
-      
-      log('デバイス選択: ' + bleDevice.name);
-      
-      bleDevice.addEventListener('gattserverdisconnected', () => {
-        log('BLE切断されました');
-        actualVibe = false;
-        targetVibe = false;
-      });
-
+      log('デバイス選択: '+bleDevice.name);
       const server = await bleDevice.gatt.connect();
       const service = await server.getPrimaryService(BLE_SERVICE_UUID);
       bleChar = await service.getCharacteristic(BLE_CHAR_UUID);
-      
-      log('接続完了！ナビ連動中');
-    } catch(e) {
-      log('接続失敗: ' + e.message);
+      document.getElementById('btnBleSend').disabled = false;
+      log('接続完了。送信可能です。');
+      bleDevice.addEventListener('gattserverdisconnected', ()=>{
+        bleChar = null;
+        document.getElementById('btnBleSend').disabled = true;
+        log('Bluetooth接続を切断しました');
+      }, { once: true });
+    }catch(e){
+      log('接続失敗: '+e.message);
+    }
+  });
+
+  document.getElementById('btnBleSend').addEventListener('click', async ()=>{
+    if(!bleChar || !bleDevice?.gatt?.connected){
+      log('Bluetooth接続がまだありません');
+      return;
+    }
+    try{
+      await bleChar.writeValue(new TextEncoder().encode('VIBRATE'));
+      log('送信: VIBRATE');
+    }catch(e){
+      log('送信失敗: '+e.message);
     }
   });
 
