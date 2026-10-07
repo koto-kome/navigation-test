@@ -4,8 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>子機ナビゲーション | Pull Compass</title>
-<link rel="stylesheet" href="destination-search.css">
-<script src="destination-search.js" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -84,22 +82,6 @@
   input[type=number], input[type=text]{
     width:100%;background:#0F1216;border:1px solid var(--panel-line);border-radius:7px;
     padding:9px 10px;color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:13px;}
-  input[type=range]{
-    width:100%;accent-color:var(--lock);cursor:pointer;
-  }
-  input[type=range]::-webkit-slider-runnable-track{
-    height:6px;border-radius:999px;background:rgba(255,176,32,.25);
-  }
-  input[type=range]::-webkit-slider-thumb{
-    -webkit-appearance:none;appearance:none;width:16px;height:16px;border-radius:50%;
-    background:var(--lock);border:2px solid #1A1400;margin-top:-5px;box-shadow:0 0 0 2px rgba(255,176,32,.18);
-  }
-  input[type=range]::-moz-range-track{
-    height:6px;border-radius:999px;background:rgba(255,176,32,.25);
-  }
-  input[type=range]::-moz-range-thumb{
-    width:16px;height:16px;border:none;border-radius:50%;background:var(--lock);box-shadow:0 0 0 2px rgba(255,176,32,.18);
-  }
   input:focus{outline:1px solid var(--self);}
 
   button{font-family:'Barlow Condensed',sans-serif;font-weight:600;letter-spacing:.03em;
@@ -161,9 +143,9 @@
 
   <div class="grid">
     <div class="cell"><div class="k">自分の向き (Heading)</div><div class="v" id="selfHeading">--°</div></div>
-    <div class="cell"><div class="k">目的地への方位 (Bearing)</div><div class="v accent" id="bearing">--°</div></div>
+    <div class="cell"><div class="k">親機への方位 (Bearing)</div><div class="v accent" id="bearing">--°</div></div>
     <div class="cell"><div class="k">自分の位置</div><div class="v" id="selfPos">未取得</div></div>
-    <div class="cell"><div class="k">目的地までの距離</div><div class="v" id="distance">--</div></div>
+    <div class="cell"><div class="k">親機との距離</div><div class="v" id="distance">--</div></div>
   </div>
 
   <section class="panel">
@@ -178,38 +160,27 @@
   </section>
 
   <section class="panel">
-    <h2><span class="n">02</span>目的地の位置</h2>
-    <div class="destination-search">
-      <label for="destinationQuery">住所・施設名</label>
-      <div class="destination-search__row">
-        <input id="destinationQuery" type="search" placeholder="例: 東京駅、新宿区西新宿2-8-1">
-        <button id="destinationSearchButton" type="button">検索</button>
-      </div>
-      <p id="destinationSearchStatus" class="destination-search__status" role="status" aria-live="polite"></p>
-      <div id="destinationResults" class="destination-search__results" aria-label="検索候補"></div>
-      <p class="destination-search__credit">住所はOpenStreetMapの検索サービスへ送信されます。非公開情報は入力しないでください。<br>地図データ: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a></p>
-    </div>
+    <h2><span class="n">02</span>親機の位置</h2>
     <div class="row">
       <div style="flex:1"><label>緯度 (lat)</label><input type="number" step="0.000001" id="targetLat" placeholder="例: 41.7687"></div>
       <div style="flex:1"><label>経度 (lng)</label><input type="number" step="0.000001" id="targetLng" placeholder="例: 140.7288"></div>
     </div>
     <div class="btnRow">
-      <button id="btnUseCurrentAsTarget">今の自分の位置を目的地として設定(動作確認用)</button>
-      <button id="btnSetTarget">この座標を目的地として設定</button>
+      <button id="btnUseCurrentAsTarget">今の自分の位置を親機として設定(動作確認用)</button>
+      <button id="btnSetTarget">この座標を親機として設定</button>
     </div>
-    <div class="hint">実機では、親機側の子機（本アプリの動作に相当する処理）から Wi‑Fi / LAN で緯度経度が送られてくる想定です。下の 03 はその受け口の雛形です。</div>
+    <div class="hint">実機では、親機側の子機（本アプリの動作に相当する処理）から Bluetooth / LoRa 等で緯度経度が送られてくる想定です。下の 03 はその受け口の雛形です。</div>
   </section>
 
   <section class="panel">
-    <h2><span class="n">03</span>親機との通信 (Wi‑Fi / WebSocket・雛形)</h2>
+    <h2><span class="n">03</span>親機との通信 (Web Bluetooth・雛形)</h2>
     <div class="btnRow">
-      <button id="btnWifiConnect">Wi‑Fiデバイスに接続</button>
-      <button id="btnWifiSend" disabled>ズレ角度/振動指令を送信</button>
-      <button id="btnWifiStop" disabled>振動を停止</button>
+      <button id="btnBleConnect">Bluetoothデバイスに接続</button>
+      <button id="btnBleSend" disabled>ズレ角度/振動指令を送信</button>
     </div>
-    <div class="logBox" id="wifiLog"><div>未接続</div></div>
+    <div class="logBox" id="bleLog"><div>未接続</div></div>
     <div class="hint">
-      接続先は <code>ws://IPアドレス:ポート</code> の形式で指定してください。現状はスタブとして、計算したズレ角度と振動強度を JSON で送信します。GPS付き親機がある場合は、緯度経度をこの経路で受信し 02 の欄へ流し込む形に拡張できます。
+      サービス/キャラクタリスティックの UUID はファームウェア側に合わせて <code>BLE_SERVICE_UUID</code> / <code>BLE_CHAR_UUID</code>(スクリプト冒頭)を書き換えてください。現状はスタブとして、計算したズレ角度(0-359を2byteで) と 振動強度(0-255を1byte)を1バイトずつ書き込みます。GPS付き親機がある場合は、緯度経度をこの経路で受信し 02 の欄へ流し込む形に拡張できます。
     </div>
   </section>
 
@@ -235,34 +206,25 @@
   // ---- 状態 ----
   let selfLat=null, selfLng=null, selfHeadingDeg=null;
   let targetLat=null, targetLng=null;
-  const destinationParams = new URLSearchParams(window.location.search);
-    const initialTargetLatValue = destinationParams.get('targetLat');
-    const initialTargetLngValue = destinationParams.get('targetLng');
-    const initialTargetLat = Number(initialTargetLatValue);
-    const initialTargetLng = Number(initialTargetLngValue);
-    if(initialTargetLatValue !== null && initialTargetLngValue !== null &&
-      Number.isFinite(initialTargetLat) && initialTargetLat >= -90 && initialTargetLat <= 90 &&
-     Number.isFinite(initialTargetLng) && initialTargetLng >= -180 && initialTargetLng <= 180){
-    targetLat = initialTargetLat;
-    targetLng = initialTargetLng;
-    document.getElementById('targetLat').value = initialTargetLat;
-    document.getElementById('targetLng').value = initialTargetLng;
-  }
   let watchId=null;
-  let wifiSocket=null;
+  let bleDevice=null, bleChar=null;
+  let bleServer = null;
   let lastVibeTime=0;
-  let vibrationActive=false;
-  let vibrationSuppressed=false;
+  let displayedDiff = null;
 
 // 方角を安定させるための履歴
 let headingHistory = [];
 const HEADING_SAMPLES = 10;
 
 // 方角が急に飛んだときの最大変化量
-const MAX_HEADING_STEP = 30;
+const MAX_HEADING_STEP = 30; 
 
-  const DEFAULT_WIFI_URL = 'ws://192.168.0.10:8080';
+  //const BLE_SERVICE_UUID = '0000ffe0-0000-1000-8000-00805f9b34fb'; // ←実機のUUIDに置き換え
+  //const BLE_CHAR_UUID    = '0000ffe1-0000-1000-8000-00805f9b34fb'; // ←実機のUUIDに置き換え
 
+  const BLE_SERVICE_UUID ='6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+  const BLE_CHAR_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+  
   // ---- DOM ----
   const statusDot = document.getElementById('statusDot');
   const statusText = document.getElementById('statusText');
@@ -276,7 +238,7 @@ const MAX_HEADING_STEP = 30;
   const tickWrap = document.getElementById('tickWrap');
   const thresholdSlider = document.getElementById('thresholdSlider');
   const thresholdVal = document.getElementById('thresholdVal');
-  const wifiLog = document.getElementById('wifiLog');
+  const bleLog = document.getElementById('bleLog');
 
   // ---- ゲージの目盛り描画 ----
   for(let i=0;i<360;i+=10){
@@ -289,29 +251,7 @@ const MAX_HEADING_STEP = 30;
   function log(msg){
     const d=document.createElement('div');
     d.textContent=`[${new Date().toLocaleTimeString()}] ${msg}`;
-    wifiLog.prepend(d);
-  }
-
-  function sendWifiCommand(command){
-    if(!wifiSocket || wifiSocket.readyState !== WebSocket.OPEN){
-      log('Wi‑Fi接続がまだありません');
-      return false;
-    }
-    try{
-      const payload = JSON.stringify(command);
-      wifiSocket.send(payload);
-      log(`送信: ${payload}`);
-      return true;
-    }catch(e){
-      log('送信失敗: '+e.message);
-      return false;
-    }
-  }
-
-  function stopHapticFeedback(){
-    if(vibrationActive && sendWifiCommand({ type: 'STOP' })){
-      vibrationActive = false;
-    }
+    bleLog.prepend(d);
   }
 
   function setStatus(on, text){
@@ -345,17 +285,13 @@ const MAX_HEADING_STEP = 30;
 
   // ---- メイン更新ループ ----
   function update(){
-    if(selfLat==null || selfLng==null){
-      stopHapticFeedback();
-      return;
-    }
+    if(selfLat==null || selfLng==null){ return; }
     selfPosEl.textContent = `${selfLat.toFixed(6)}, ${selfLng.toFixed(6)}`;
 
     if(targetLat==null || targetLng==null){
-      bearingEl.textContent='目的地未設定';
+      bearingEl.textContent='親機未設定';
       distanceEl.textContent='--';
       diffDegEl.textContent='--°';
-      stopHapticFeedback();
       return;
     }
 
@@ -366,14 +302,31 @@ const MAX_HEADING_STEP = 30;
 
     if(selfHeadingDeg==null){
       diffDegEl.textContent='方位不明';
-      stopHapticFeedback();
       return;
     }
 
-    const diff = angleDiff(selfHeadingDeg, bearing); // -180..180、+なら右(時計回り)に回すべき
-    diffDegEl.textContent = (diff>0?'+':'')+diff.toFixed(0)+'°';
-    needleWrap.style.transform = `rotate(${diff}deg)`;
 
+    const diff = angleDiff(selfHeadingDeg, bearing); // -180..180
+    
+    if(displayedDiff === null){
+      displayedDiff = diff;
+    }else{
+      let delta = diff - (displayedDiff % 360);
+
+      if(delta > 180){
+        delta -= 360;
+      }
+
+      if(delta < -180){
+        delta += 360;
+      }
+
+      displayedDiff += delta;
+    }
+
+    diffDegEl.textContent = (diff>0?'+':'')+diff.toFixed(0)+'°';
+    needleWrap.style.transform = `rotate(${displayedDiff}deg)`;
+    
     const threshold = Number(thresholdSlider.value);
     const aligned = Math.abs(diff) <= threshold;
     pullGlow.classList.toggle('active', aligned);
@@ -382,29 +335,21 @@ const MAX_HEADING_STEP = 30;
   }
 
   // ---- 触覚フィードバック(振動) ----
-  // 実機では、この intensity / interval に相当する値を 03 のWebSocketで子機へ渡す
+  // 実機では、この intensity / interval に相当する値を 03 のBLE送信で子機のアクチュエータへ渡す
   function handleHapticFeedback(diff, aligned){
-    if(!wifiSocket || wifiSocket.readyState !== WebSocket.OPEN) return;
+    if(!('vibrate' in navigator)) return;
     const now = performance.now();
     if(!aligned){
-      vibrationSuppressed = false;
-      stopHapticFeedback();
       return; // ロック外では振動しない
     }
-    if(vibrationSuppressed) return;
     // ズレが小さいほど間隔を短く(=強く引かれる感覚)
+    const absDiff = Math.abs(diff);
     const interval = 1000; // 1秒おきに正面か確認＋振動
     if(now - lastVibeTime > interval){
-      const intensity = Math.max(0, 255 - Math.abs(diff)*10);
-      if(sendWifiCommand({
-        type: 'VIBRATE',
-        diff: Math.round((diff+360)%360),
-        intensity: Math.round(intensity),
-        aligned: true
-      })){
-        vibrationActive = true;
-        lastVibeTime = now;
+      if(bleChar && bleDevice?.gatt?.connected){
+        bleChar.writeValue(new TextEncoder().encode('VIBRATE'));
       }
+      lastVibeTime = now;
     }
   }
 
@@ -536,102 +481,58 @@ function onOrientation(e){
     update();
   });
 
-  // ---- Wi‑Fi / WebSocket(雛形) ----
-  document.getElementById('btnWifiConnect').addEventListener('click', ()=>{
-    const url = prompt('親機の WebSocket URL を入力してください', DEFAULT_WIFI_URL);
-    if(!url){ return; }
-
-    const trimmedUrl = url.trim();
-    if(!/^wss?:\/\//i.test(trimmedUrl)){
-      log('接続先は ws:// または wss:// で始める必要があります');
-      return;
-    }
-
+  // ---- Web Bluetooth(雛形) ----
+  document.getElementById('btnBleConnect').addEventListener('click', async ()=>{
+    
+    if(!navigator.bluetooth){ log('この端末/ブラウザは Web Bluetooth 非対応です(iOS Safari非対応)'); return; }
     try{
-      if(wifiSocket && wifiSocket.readyState === WebSocket.OPEN){
-        wifiSocket.close();
-      }
-      wifiSocket = new WebSocket(trimmedUrl);
-      log('接続先: ' + trimmedUrl);
+     // bleDevice = await navigator.bluetooth.requestDevice({
+       // filters:[{ services:[BLE_SERVICE_UUID] }]
+        // 対象が絞れない場合は次の1行に差し替え: acceptAllDevices:true, optionalServices:[BLE_SERVICE_UUID]
 
-      wifiSocket.onopen = ()=>{
-        log('Wi‑Fi接続成功');
-        document.getElementById('btnWifiSend').disabled = false;
-        document.getElementById('btnWifiStop').disabled = false;
-      };
+      bleDevice = await navigator.bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: [BLE_SERVICE_UUID]
+    });
+      
+      log('デバイス選択: '+bleDevice.name);
+     log('GATT接続開始');
+      const server = await bleDevice.gatt.connect();
+      log('GATT接続成功');
 
-      wifiSocket.onerror = (e)=>{
-        log('Wi‑Fi接続エラー: ' + (e?.message || '接続に失敗しました'));
-      };
+      log('サービス取得開始');
+      const service = await server.getPrimaryService(BLE_SERVICE_UUID);
+      log('サービス取得成功');
 
-      wifiSocket.onclose = ()=>{
-        log('Wi‑Fi接続を切断しました');
-        document.getElementById('btnWifiSend').disabled = true;
-        document.getElementById('btnWifiStop').disabled = true;
-        vibrationActive = false;
-      };
-
-      wifiSocket.onmessage = (event)=>{
-        try {
-          const data = JSON.parse(event.data);
-          if(data && typeof data.lat !== 'undefined' && typeof data.lng !== 'undefined'){
-            document.getElementById('targetLat').value = Number(data.lat).toFixed(6);
-            document.getElementById('targetLng').value = Number(data.lng).toFixed(6);
-            targetLat = Number(data.lat);
-            targetLng = Number(data.lng);
-            log('親機位置を受信: ' + data.lat + ', ' + data.lng);
-            update();
-          }
-        } catch (e) {
-          log('受信メッセージ: ' + event.data);
-        }
-      };
+      log('キャラクタリスティック取得開始');
+      bleChar = await service.getCharacteristic(BLE_CHAR_UUID);
+      log('キャラクタリスティック取得成功');
+      log('接続完了。送信可能です。');
+      document.getElementById('btnBleSend').disabled=false;
     }catch(e){
-      log('接続失敗: ' + e.message);
+      log('接続失敗: '+e.message);
     }
   });
 
-  document.getElementById('btnWifiSend').addEventListener('click', ()=>{
-    if(!wifiSocket || wifiSocket.readyState !== WebSocket.OPEN){
-      log('Wi‑Fi接続がまだありません');
-      return;
-    }
-    if(targetLat==null || selfHeadingDeg==null){
-      log('送信できるデータがまだありません');
-      return;
-    }
+  document.getElementById('btnBleSend').addEventListener('click', async ()=>{
+    if(!bleChar){ return; }
+    if(targetLat==null || selfHeadingDeg==null){ log('送信できるデータがまだありません'); return; }
     const bearing = bearingTo(selfLat,selfLng,targetLat,targetLng);
     const diff = Math.round((angleDiff(selfHeadingDeg,bearing)+360)%360); // 0-359
     const threshold = Number(thresholdSlider.value);
     const aligned = Math.abs(angleDiff(selfHeadingDeg,bearing)) <= threshold;
     const intensity = aligned ? Math.max(0, 255 - Math.abs(angleDiff(selfHeadingDeg,bearing))*10) : 0;
 
-    const payload = JSON.stringify({
-      type: 'VIBRATE',
-      diff: diff,
-      intensity: Math.round(intensity),
-      aligned: aligned,
-      bearing: Math.round(bearing)
-    });
-
+    const payload = new TextEncoder().encode('VIBRATE');
     try{
-      wifiSocket.send(payload);
-      vibrationActive = aligned && intensity > 0;
-      vibrationSuppressed = false;
-      log(`送信: ${payload}`);
+      await bleChar.writeValue(payload);
+      log(`送信: diff=${diff}° intensity=${Math.round(intensity)}`);
     }catch(e){
       log('送信失敗: '+e.message);
     }
   });
 
-  document.getElementById('btnWifiStop').addEventListener('click', ()=>{
-    if(sendWifiCommand({ type: 'STOP' })){
-      vibrationActive = false;
-      vibrationSuppressed = true;
-    }
-  });
-
-  document.getElementById('btnStart').addEventListener('click', startSensors);
+   document.getElementById('btnStart').addEventListener('click', startSensors);
 
   document.getElementById('btnVibeTest').addEventListener('click', ()=>{
     if('vibrate' in navigator){
@@ -640,6 +541,8 @@ function onOrientation(e){
       alert('この端末/ブラウザは振動APIに対応していません');
     }
   });
+
+  
 
 })();
 </script>
