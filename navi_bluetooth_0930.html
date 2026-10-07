@@ -382,42 +382,92 @@
 
   let orientLogged = false;
   function onOrientation(e){
-    if(!orientLogged){
-      orientLogged = true;
-      log(`方位イベント受信: type=${e.type} alpha=${e.alpha} webkit=${e.webkitCompassHeading}`);
-    }
-    let heading = null;
-    let orientLogged = false;
-  function onOrientation(e){
-    if(!orientLogged){
-      orientLogged = true;
-      log(`方位イベント受信: type=${e.type} alpha=${e.alpha} webkit=${e.webkitCompassHeading}`);
-    }
-    let heading = null;
-    
-    if(typeof e.webkitCompassHeading === 'number'){
-      heading = e.webkitCompassHeading;
-    } else if(e.alpha != null){
-      heading = (360 - e.alpha) % 360;
-    }
-
-    if(heading == null || !Number.isFinite(heading)) return;
-
-    if(selfHeadingDeg != null){
-      let step = heading - selfHeadingDeg;
-      if(step > 180) step -= 360;
-      if(step < -180) step += 360;
-      if(Math.abs(step) > MAX_HEADING_STEP){
-         rejectCount++;
-         if(rejectCount < 5) return;   // 4回までは外れ値として捨てる
-         headingHistory = [];          // 5回連続なら本当に向きが変わったとみなして採用
-       }
-     }
-    rejectCount = 0;
-
-    const rad = heading * Math.PI / 180;
+     if(!orientLogged){
+    orientLogged = true;
+    log(`方位イベント受信: type=${e.type} alpha=${e.alpha} webkit=${e.webkitCompassHeading}`);
   }
 
+  let heading = null;
+
+  // iPhoneなどで使われる北基準の方位
+  if(typeof e.webkitCompassHeading === 'number'){
+    heading = e.webkitCompassHeading;
+
+  // Androidなど
+  }else if(e.alpha != null){
+    heading = (360 - e.alpha) % 360;
+  }
+
+  if(heading == null || !Number.isFinite(heading)){
+    return;
+  }
+
+  // 急激な方位変化を除外
+  if(selfHeadingDeg != null){
+
+    let step = heading - selfHeadingDeg;
+
+    if(step > 180){
+      step -= 360;
+    }
+
+    if(step < -180){
+      step += 360;
+    }
+
+    if(Math.abs(step) > MAX_HEADING_STEP){
+
+      rejectCount++;
+
+      // 4回までは異常値として無視
+      if(rejectCount < 5){
+        return;
+      }
+
+      // 5回連続なら本当に向きが変わったと判断
+      headingHistory = [];
+    }
+  }
+
+  rejectCount = 0;
+
+  // 角度をラジアンに変換
+  const rad = heading * Math.PI / 180;
+
+  // 角度をsin/cosに分解して履歴に保存
+  headingHistory.push({
+    sin: Math.sin(rad),
+    cos: Math.cos(rad)
+  });
+
+  // 最新10個だけ使う
+  if(headingHistory.length > HEADING_SAMPLES){
+    headingHistory.shift();
+  }
+
+  // 平均方向を計算
+  let sinSum = 0;
+  let cosSum = 0;
+
+  for(const h of headingHistory){
+    sinSum += h.sin;
+    cosSum += h.cos;
+  }
+
+  let smoothedHeading =
+    Math.atan2(sinSum, cosSum) * 180 / Math.PI;
+
+  if(smoothedHeading < 0){
+    smoothedHeading += 360;
+  }
+
+  selfHeadingDeg = smoothedHeading;
+
+  selfHeadingEl.textContent =
+    selfHeadingDeg.toFixed(0) + '°';
+
+  update();
+}
   document.getElementById('btnStart').addEventListener('click', startSensors);
 
   document.getElementById('btnUseCurrentAsTarget').addEventListener('click', ()=>{
